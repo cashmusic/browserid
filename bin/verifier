@@ -128,5 +128,5 @@ heartbeat.setup(app);
 app.post('/verify', doVerify);
 
 app.listen(PORT, HOST, function(conn) {
-  console.log("bound to", app.address().address, "/", app.address().port);
+  logger.info("running on http://" + app.address().address + ":" + app.address().port);
 });

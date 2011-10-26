@@ -57,8 +57,8 @@ substitution = require('substitute.js');
 metrics = require("metrics.js"),
 logger = require("logging.js").logger;
 
-const PRIMARY_HOST = "127.0.0.1";
-const PRIMARY_PORT = 62700;
+const HOST = process.env['HOST'] || "127.0.0.1";
+const PORT = process.env['PORT'] || 62700;
 
 var app = undefined;
 
@@ -340,6 +340,6 @@ router(app);
 // use the express 'static' middleware for serving of static files (cache headers, HTTP range, etc)
 app.use(express.static(path.join(__dirname, "..", "resources", "static")));
 
-app.listen(PRIMARY_PORT, PRIMARY_HOST, function() {
-  console.log("bound to", app.address().address, "/", app.address().port);
+app.listen(PORT, HOST, function() {
+  logger.info("running on http://" + app.address().address + ":" + app.address().port);
 });
