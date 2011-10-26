@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
@@ -34,16 +36,21 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-const    path = require('path'),
-          url = require('url'),
-           fs = require('fs'),
-certassertion = require('./lib/certassertion.js'),
-      express = require('express'),
-      metrics = require('../libs/metrics.js'),
-    heartbeat = require('../libs/heartbeat.js'),
-       logger = require('../libs/logging.js').logger;
+const
+sys = require("sys"),
+path = require('path'),
+url = require('url'),
+fs = require('fs'),
+express = require('express'),
+certassertion = require('../lib/verifier/certassertion.js'),
+metrics = require('../lib/metrics'),
+heartbeat = require('../lib/heartbeat'),
+logger = require('../lib/logging').logger;
 
 logger.info("verifier server starting up");
+
+const HOST = process.env['HOST'] || "127.0.0.1";
+const PORT = process.env['PORT'] || 62800;
 
 // updating this call for certs now (Ben - 2011-09-06)
 // assertion is the single assertion of email
@@ -93,31 +100,33 @@ function doVerify(req, resp, next) {
 
 }
 
-exports.setup = function(app) {
-  // request to logger, dev formatted which omits personal data in the requests
 
-  app.use(express.logger({
-    format: 'dev',
-    stream: {
-      write: function(x) {
-        logger.info(typeof x === 'string' ? x.trim() : x);
-      }
+var app = express.createServer();
+
+// request to logger, dev formatted which omits personal data in the requests
+app.use(express.logger({
+  stream: {
+    write: function(x) {
+      logger.info(typeof x === 'string' ? x.trim() : x);
     }
-  }));
+  }
+}));
 
-  app.use(express.bodyParser());
+app.use(express.bodyParser());
 
-  // code_update is an internal api that causes the node server to
-  // shut down.  This should never be externally accessible and
-  // is used during the dead simple deployment procedure.
-  app.get("/code_update", function (req, resp) {
-    logger.warn("code updated.  shutting down.");
-    process.exit();
-  });
+// code_update is an internal api that causes the node server to
+// shut down.  This should never be externally accessible and
+// is used during the dead simple deployment procedure.
+app.get("/code_update", function (req, resp) {
+  logger.warn("code updated.  shutting down.");
+  process.exit();
+});
 
-  // setup health check / heartbeat
-  heartbeat.setup(app);
+// setup health check / heartbeat
+heartbeat.setup(app);
 
-  app.post('/', doVerify);
-  app.post('/verify', doVerify);
-};
+app.post('/verify', doVerify);
+
+app.listen(PORT, HOST, function(conn) {
+  console.log("bound to", app.address().address, "/", app.address().port);
+});
