@@ -39,30 +39,30 @@ const
 fs = require('fs'),
 path = require('path'),
 url = require('url'),
-wsapi = require('./lib/wsapi.js'),
-ca = require('./lib/ca.js'),
-httputils = require('./lib/httputils.js'),
-sessions = require('connect-cookie-session'),
+sessions = require('connect-cookie-session');
+
+// add lib/ to the require path
+require.paths.unshift(path.join(__dirname, '..', 'lib'));
+
+const
+wsapi = require('browserid/wsapi.js'),
+ca = require('browserid/ca.js'),
+httputils = require('httputils.js'),
 express = require('express'),
-secrets = require('../libs/secrets.js'),
-db = require('./lib/db.js'),
-configuration = require('../libs/configuration.js'),
-heartbeat = require('../libs/heartbeat.js'),
-substitution = require('../libs/substitute.js');
-metrics = require("../libs/metrics.js"),
-logger = require("../libs/logging.js").logger;
+secrets = require('secrets.js'),
+db = require('db.js'),
+configuration = require('configuration.js'),
+heartbeat = require('heartbeat.js'),
+substitution = require('substitute.js');
+metrics = require("metrics.js"),
+logger = require("logging.js").logger;
 
 const PRIMARY_HOST = "127.0.0.1";
 const PRIMARY_PORT = 62700;
 
-var handler = require("./app.js");
-
 var app = undefined;
 
 app = express.createServer();
-
-// let the specific server interact directly with the connect server to register their middleware
-if (handler.setup) handler.setup(app);
 
 logger.info("browserid server starting up");
 
@@ -82,7 +82,7 @@ function internal_redirector(new_url, suppress_noframes) {
 }
 
 function router(app) {
-  app.set("views", __dirname + '/views');
+  app.set("views", path.join(__dirname, "..", "resources", "views"));
 
   app.set('view options', {
     production: configuration.get('use_minified_resources')
@@ -207,7 +207,7 @@ function router(app) {
 };
 
 // request to logger, dev formatted which omits personal data in the requests
-server.use(express.logger({
+app.use(express.logger({
   format: 'dev',
   stream: {
     write: function(x) {
@@ -219,7 +219,7 @@ server.use(express.logger({
 // over SSL?
 var overSSL = (configuration.get('scheme') == 'https');
 
-server.use(express.cookieParser());
+app.use(express.cookieParser());
 
 var cookieSessionMiddleware = sessions({
   secret: COOKIE_SECRET,
@@ -235,7 +235,7 @@ var cookieSessionMiddleware = sessions({
 });
 
 // cookie sessions && cache control
-server.use(function(req, resp, next) {
+app.use(function(req, resp, next) {
   // cookie sessions are only applied to calls to /wsapi
   // as all other resources can be aggressively cached
   // by layers higher up based on cache control headers.
@@ -259,7 +259,7 @@ server.use(function(req, resp, next) {
 });
 
 // verify all JSON responses are objects - prevents regression on issue #217
-server.use(function(req, resp, next) {
+app.use(function(req, resp, next) {
   var realRespJSON = resp.json;
   resp.json = function(obj) {
     if (!obj || typeof obj !== 'object') {
@@ -332,13 +332,13 @@ app.use(function(req, resp, next) {
 });
 
 // add middleware to re-write urls if needed
-configuration.performSubstitution(server);
+configuration.performSubstitution(app);
 
 // add the actual URL handlers other than static
-router(server);
+router(app);
 
 // use the express 'static' middleware for serving of static files (cache headers, HTTP range, etc)
-app.use(express.static(path.join(__dirname, "static")));
+app.use(express.static(path.join(__dirname, "..", "resources", "static")));
 
 app.listen(PRIMARY_PORT, PRIMARY_HOST, function() {
   console.log("bound to", app.address().address, "/", app.address().port);
