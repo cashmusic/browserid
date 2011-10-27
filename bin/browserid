@@ -51,14 +51,11 @@ httputils = require('httputils.js'),
 express = require('express'),
 secrets = require('secrets.js'),
 db = require('db.js'),
-configuration = require('configuration.js'),
+config = require('configuration.js'),
 heartbeat = require('heartbeat.js'),
 substitution = require('substitute.js');
 metrics = require("metrics.js"),
 logger = require("logging.js").logger;
-
-const HOST = process.env['HOST'] || "127.0.0.1";
-const PORT = process.env['PORT'] || 62700;
 
 var app = undefined;
 
@@ -67,9 +64,9 @@ app = express.createServer();
 logger.info("browserid server starting up");
 
 // open the databse
-db.open(configuration.get('database'));
+db.open(config.get('database'));
 
-const COOKIE_SECRET = secrets.hydrateSecret('browserid_cookie', configuration.get('var_path'));
+const COOKIE_SECRET = secrets.hydrateSecret('browserid_cookie', config.get('var_path'));
 const COOKIE_KEY = 'browserid_state';
 
 function internal_redirector(new_url, suppress_noframes) {
@@ -85,7 +82,7 @@ function router(app) {
   app.set("views", path.join(__dirname, "..", "resources", "views"));
 
   app.set('view options', {
-    production: configuration.get('use_minified_resources')
+    production: config.get('use_minified_resources')
   });
 
   // this should probably be an internal redirect
@@ -96,7 +93,7 @@ function router(app) {
       title: 'A Better Way to Sign In',
       layout: 'dialog_layout.ejs',
       useJavascript: true,
-      production: configuration.get('use_minified_resources')
+      production: config.get('use_minified_resources')
     });
   });
 
@@ -113,7 +110,7 @@ function router(app) {
     res.removeHeader('x-frame-options');
     res.render('relay.ejs', {
       layout: false,
-      production: configuration.get('use_minified_resources')
+      production: config.get('use_minified_resources')
     });
   });
 
@@ -216,8 +213,20 @@ app.use(express.logger({
   }
 }));
 
+// if these are verify requests, we'll redirect them off
+// to the verifier
+if (config.get('verifier_url')) {
+  app.use(function(req, res, next) {
+    if (/^\/verify$/.test(req.url)) {
+      return res.redirect(config.get('verifier_url'));
+    } else {
+      return next();
+    }
+  });
+}
+
 // over SSL?
-var overSSL = (configuration.get('scheme') == 'https');
+var overSSL = (config.get('scheme') == 'https');
 
 app.use(express.cookieParser());
 
@@ -229,7 +238,7 @@ var cookieSessionMiddleware = sessions({
     httpOnly: true,
     // IMPORTANT: we allow users to go 1 weeks on the same device
     // without entering their password again
-    maxAge: configuration.get('authentication_duration_ms'),
+    maxAge: config.get('authentication_duration_ms'),
     secure: overSSL
   }
 });
@@ -257,6 +266,8 @@ app.use(function(req, resp, next) {
     return next();
   }
 });
+
+config.performSubstitution(app);
 
 // verify all JSON responses are objects - prevents regression on issue #217
 app.use(function(req, resp, next) {
@@ -331,15 +342,12 @@ app.use(function(req, resp, next) {
   next();
 });
 
-// add middleware to re-write urls if needed
-configuration.performSubstitution(app);
-
 // add the actual URL handlers other than static
 router(app);
 
 // use the express 'static' middleware for serving of static files (cache headers, HTTP range, etc)
 app.use(express.static(path.join(__dirname, "..", "resources", "static")));
 
-app.listen(PORT, HOST, function() {
+app.listen(config.get('port'), config.get('hostname'), function() {
   logger.info("running on http://" + app.address().address + ":" + app.address().port);
 });

@@ -16,7 +16,6 @@ if (process.env['BROWSERID_URL']) {
   console.log('using browserid server at ' + burl);
 
   exampleServer.use(postprocess.middleware(function(req, buffer) {
-    console.log("SUBBY");
     return buffer.toString().replace(new RegExp('https://browserid.org', 'g'), burl);
   }));
 }

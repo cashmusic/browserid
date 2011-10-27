@@ -27,6 +27,7 @@ process.env['LOG_TO_CONSOLE'] = 1;
 
 // all spawned processes will communicate with the local browserid
 process.env['BROWSERID_URL'] = 'http://' + HOST + ":10001";
+process.env['VERIFIER_URL'] = 'http://' + HOST + ":10000/verify";
 
 Object.keys(daemonsToRun).forEach(function(k) {
   Object.keys(daemonsToRun[k]).forEach(function(ek) {
@@ -45,7 +46,7 @@ Object.keys(daemonsToRun).forEach(function(k) {
   p.stdout.on('data', dump);
   p.stderr.on('data', dump);
 
-  console.log("spawned", k, "("+pathToScript+") with pid", p.pid); 
+  console.log("spawned", k, "("+pathToScript+") with pid", p.pid);
   Object.keys(daemonsToRun[k]).forEach(function(ek) {
     delete process.env[ek];
   });
